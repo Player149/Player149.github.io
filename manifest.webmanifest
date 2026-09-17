@@ -1,0 +1,11 @@
+{
+  "name": "Iron Crown.IO",
+  "short_name": "Iron Crown",
+  "description": "빠른 템포의 모바일 기사 난투 게임",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#080d17",
+  "theme_color": "#080d17",
+  "orientation": "landscape"
+}
+
