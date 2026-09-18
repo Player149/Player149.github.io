@@ -22,7 +22,7 @@ function dealDamage(target,amount,source,kind='피해'){
   if(target instanceof Fighter)target.combatTimer=0;
   if(source instanceof Fighter)source.combatTimer=0;
   let reduction=target.armor?target.armor/(100+target.armor):0;
-  if(target instanceof Fighter&&target.blocking&&target.stamina>=15){reduction=1-(1-reduction)*(1-target.blockReduction);target.stamina-=15;if(source instanceof Fighter)source.stamina=Math.max(0,source.stamina-15);effects.push({type:'block',x:target.x,y:target.y,a:target.angle,r:40,color:'#8dd6ff',life:.2,max:.2});}
+  if(target instanceof Fighter&&target.blocking&&target.stamina>0){reduction=1-(1-reduction)*(1-target.blockReduction);target.stamina=Math.max(0,target.stamina-5);if(source instanceof Fighter){source.stamina=Math.max(0,source.stamina-15);triggerExhaustion(source);}triggerExhaustion(target);effects.push({type:'block',x:target.x,y:target.y,a:target.angle,r:40,color:'#8dd6ff',life:.2,max:.2});}
   const final=Math.max(1,amount*(1-reduction));target.hp-=final;target.hurtAnim=1;
   if(source instanceof Fighter){
     if(source.lifesteal)source.hp=Math.min(source.maxHp,source.hp+final*source.lifesteal);

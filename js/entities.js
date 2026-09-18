@@ -16,7 +16,7 @@ class Fighter {
     this.evoTier=0; this.evolutionIds=[]; this.evolutionNames=[];
     this.ai={retarget:0,target:null,strafe:Math.random()<.5?-1:1,block:0};
     this.bossFlag=false; this.bossDamage=0; this.bossKills=0;
-    this.zoneGlow=0; this.goldBonus=1; this.combatTimer=999;
+    this.zoneGlow=0; this.goldBonus=1; this.combatTimer=999; this.exhaustTimer=0;
     this.baseStats={maxHp:this.maxHp,damage:this.damage,moveSpeed:this.moveSpeed,attackSpeed:this.attackSpeed,armor:this.armor,crit:this.crit,lifesteal:this.lifesteal,skillPower:this.skillPower,xpGain:this.xpGain,maxStamina:this.maxStamina};
     if (isPlayer) applyRunes(this);
   }
@@ -25,21 +25,22 @@ class Fighter {
     if (!this.alive) return;
     for (const k in this.cool) this.cool[k]=Math.max(0,this.cool[k]-dt);
     this.attackAnim=Math.max(0,this.attackAnim-dt*5); this.hurtAnim=Math.max(0,this.hurtAnim-dt*5);
-    this.invuln=Math.max(0,this.invuln-dt); this.ai.block=Math.max(0,this.ai.block-dt);
+    this.invuln=Math.max(0,this.invuln-dt); this.ai.block=Math.max(0,this.ai.block-dt); this.exhaustTimer=Math.max(0,this.exhaustTimer-dt);
     this.blocking=false;
 
-    if (this.dashTime>0) {
+    if (this.dashTime>0&&this.exhaustTimer<=0) {
       this.dashTime-=dt; this.x+=this.dashVX*dt; this.y+=this.dashVY*dt;
       if (Math.random()<.65) trailParticle(this.x,this.y,this.color);
-    } else if (this.isPlayer) this.playerControl(dt);
-    else this.botControl(dt);
+    } else if(this.exhaustTimer<=0){
+      if (this.isPlayer) this.playerControl(dt); else this.botControl(dt);
+    }
 
     const b=currentBounds(), margin=this.radius*this.size;
     this.x=clamp(this.x,b.x+margin,b.x+b.w-margin); this.y=clamp(this.y,b.y+margin,b.y+b.h-margin);
     this.combatTimer+=dt;
-    this.stamina=clamp(this.stamina+10*dt,0,this.maxStamina);
+    if(!this.blocking)this.stamina=clamp(this.stamina+30*dt,0,this.maxStamina);
     if(this.combatTimer>=5&&this.hp<this.maxHp)this.hp=Math.min(this.maxHp,this.hp+this.maxHp*.1*dt);
-    if (input.left && this.isPlayer && isGameplayReady()) this.attack();
+    if (input.left && this.isPlayer && isGameplayReady()&&this.exhaustTimer<=0) this.attack();
   }
 
   playerControl(dt) {
@@ -48,7 +49,7 @@ class Fighter {
     const ml=Math.hypot(mx,my); if (ml>1){mx/=ml;my/=ml;}
     let speed=this.moveSpeed;
     if ((input.keys.ShiftLeft||input.keys.ShiftRight) && ml>.1) speed*=1.42;
-    if (input.right && this.stamina>=15) { this.blocking=true; speed*=.5; }
+    if (input.right && this.stamina>0) { this.blocking=true; speed*=.5; }
     this.x+=mx*speed*dt; this.y+=my*speed*dt;
     if (input.mobile) {
       const t=nearestTarget(this,520); if(t) this.angle=Math.atan2(t.y-this.y,t.x-this.x); else if(ml>.1)this.angle=Math.atan2(my,mx);
@@ -73,7 +74,7 @@ class Fighter {
     this.x+=(dx/d*toward + -dy/d*side)*this.moveSpeed*dt;
     this.y+=(dy/d*toward + dx/d*side)*this.moveSpeed*dt;
     if(d<145 && Math.random()<.012) this.ai.block=rand(.25,.6);
-    this.blocking=this.ai.block>0&&this.stamina>=15;
+    this.blocking=this.ai.block>0&&this.stamina>0;
     if(d<92)this.attack();
     if(this.evoTier>=1&&d<430&&this.cool.e<=0&&Math.random()<.008)this.skillE();
     if(this.evoTier>=2&&d<220&&this.cool.r<=0&&Math.random()<.005)this.skillR();
@@ -82,7 +83,7 @@ class Fighter {
   }
 
   attack() {
-    if(!this.alive||this.cool.attack>0||this.blocking||this.stamina<15)return;
+    if(!this.alive||this.exhaustTimer>0||this.cool.attack>0||this.blocking||this.stamina<15)return;
     this.stamina-=15;
     this.cool.attack=.56/this.attackSpeed; this.attackAnim=1;
     sfx('swing',this.isPlayer?1:.25);
@@ -101,7 +102,7 @@ class Fighter {
   }
 
   dash() {
-    if(!this.alive||this.cool.dash>0)return;
+    if(!this.alive||this.exhaustTimer>0||this.cool.dash>0)return;
     let dx,dy;
     if(this.isPlayer){ dx=(input.keys.KeyD?1:0)-(input.keys.KeyA?1:0)+input.touchMove.x; dy=(input.keys.KeyS?1:0)-(input.keys.KeyW?1:0)+input.touchMove.y; }
     else {dx=Math.cos(this.angle);dy=Math.sin(this.angle);}
@@ -111,7 +112,7 @@ class Fighter {
   }
 
   skillE() {
-    if(!this.alive||this.evoTier<1||this.cool.e>0||this.stamina<25)return;
+    if(!this.alive||this.exhaustTimer>0||this.evoTier<1||this.cool.e>0||this.stamina<25)return;
     this.stamina-=25;
     this.cool.e=6.5; sfx('skill',this.isPlayer?1:.2); if(game.mode==='play')addXp(this,1.3);
     if(this.evolutionIds.includes('guardian')){
@@ -123,7 +124,7 @@ class Fighter {
   }
 
   skillR() {
-    if(!this.alive||this.evoTier<2||this.cool.r>0||this.stamina<25)return;
+    if(!this.alive||this.exhaustTimer>0||this.evoTier<2||this.cool.r>0||this.stamina<25)return;
     this.stamina-=25;
     this.cool.r=11; sfx('skill',this.isPlayer?1:.2); if(game.mode==='play')addXp(this,2);
     if(this.evolutionIds.includes('lancer')){
@@ -135,7 +136,7 @@ class Fighter {
   }
 
   skillQ() {
-    if(!this.alive||this.evoTier<3||this.cool.q>0||this.stamina<25)return;
+    if(!this.alive||this.exhaustTimer>0||this.evoTier<3||this.cool.q>0||this.stamina<25)return;
     this.stamina-=25;
     this.cool.q=23; sfx('skill',this.isPlayer?1:.2); if(game.mode==='play')addXp(this,3);
     if(this.evolutionIds.includes('storm')){
@@ -171,6 +172,12 @@ class Fighter {
     ctx.restore();
     drawNameplate(this);
   }
+}
+
+function triggerExhaustion(f){
+  if(!(f instanceof Fighter)||f.stamina>0||f.exhaustTimer>0)return;
+  f.stamina=0;f.exhaustTimer=2;f.blocking=false;f.dashTime=0;
+  floatTexts.push({x:f.x,y:f.y-42*f.size,text:'탈진!',color:'#ffd45e',life:1.1,max:1.1});
 }
 
 class Monster {

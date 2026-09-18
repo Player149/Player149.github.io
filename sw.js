@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'iron-crown-v2';
+const CACHE = 'iron-crown-v3';
 const ASSETS = [
   './',
   './index.html',
