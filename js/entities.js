@@ -16,7 +16,7 @@ class Fighter {
     this.evoTier=0; this.evolutionIds=[]; this.evolutionNames=[];
     this.ai={retarget:0,target:null,strafe:Math.random()<.5?-1:1,block:0};
     this.bossFlag=false; this.bossDamage=0; this.bossKills=0;
-    this.zoneGlow=0; this.goldBonus=1; this.combatTimer=999; this.exhaustTimer=0;
+    this.zoneGlow=0; this.goldBonus=1; this.combatTimer=999; this.fighterCombatTimer=0; this.exhaustTimer=0;
     this.baseStats={maxHp:this.maxHp,damage:this.damage,moveSpeed:this.moveSpeed,attackSpeed:this.attackSpeed,armor:this.armor,crit:this.crit,lifesteal:this.lifesteal,skillPower:this.skillPower,xpGain:this.xpGain,maxStamina:this.maxStamina};
     if (isPlayer) applyRunes(this);
   }
@@ -25,7 +25,7 @@ class Fighter {
     if (!this.alive) return;
     for (const k in this.cool) this.cool[k]=Math.max(0,this.cool[k]-dt);
     this.attackAnim=Math.max(0,this.attackAnim-dt*5); this.hurtAnim=Math.max(0,this.hurtAnim-dt*5);
-    this.invuln=Math.max(0,this.invuln-dt); this.ai.block=Math.max(0,this.ai.block-dt); this.exhaustTimer=Math.max(0,this.exhaustTimer-dt);
+    this.invuln=Math.max(0,this.invuln-dt); this.ai.block=Math.max(0,this.ai.block-dt); this.fighterCombatTimer=Math.max(0,this.fighterCombatTimer-dt); this.exhaustTimer=Math.max(0,this.exhaustTimer-dt);
     this.blocking=false;
 
     if (this.dashTime>0&&this.exhaustTimer<=0) {
@@ -38,7 +38,7 @@ class Fighter {
     const b=currentBounds(), margin=this.radius*this.size;
     this.x=clamp(this.x,b.x+margin,b.x+b.w-margin); this.y=clamp(this.y,b.y+margin,b.y+b.h-margin);
     this.combatTimer+=dt;
-    if(!this.blocking)this.stamina=clamp(this.stamina+30*dt,0,this.maxStamina);
+    if(!this.blocking)this.stamina=clamp(this.stamina+20*dt,0,this.maxStamina);
     if(this.combatTimer>=5&&this.hp<this.maxHp)this.hp=Math.min(this.maxHp,this.hp+this.maxHp*.1*dt);
     if (input.left && this.isPlayer && isGameplayReady()&&this.exhaustTimer<=0) this.attack();
   }
@@ -83,8 +83,9 @@ class Fighter {
   }
 
   attack() {
-    if(!this.alive||this.exhaustTimer>0||this.cool.attack>0||this.blocking||this.stamina<15)return;
-    this.stamina-=15;
+    const costsStamina=this.fighterCombatTimer>0;
+    if(!this.alive||this.exhaustTimer>0||this.cool.attack>0||this.blocking||(costsStamina&&this.stamina<15))return;
+    if(costsStamina)this.stamina-=15;
     this.cool.attack=.56/this.attackSpeed; this.attackAnim=1;
     sfx('swing',this.isPlayer?1:.25);
     const range=84*this.size, arc=1.28;
@@ -112,8 +113,9 @@ class Fighter {
   }
 
   skillE() {
-    if(!this.alive||this.exhaustTimer>0||this.evoTier<1||this.cool.e>0||this.stamina<25)return;
-    this.stamina-=25;
+    const costsStamina=this.fighterCombatTimer>0;
+    if(!this.alive||this.exhaustTimer>0||this.evoTier<1||this.cool.e>0||(costsStamina&&this.stamina<25))return;
+    if(costsStamina)this.stamina-=25;
     this.cool.e=6.5; sfx('skill',this.isPlayer?1:.2); if(game.mode==='play')addXp(this,1.3);
     if(this.evolutionIds.includes('guardian')){
       areaAttack(this,135,this.damage*1.25*this.skillPower,'방패 폭발','#78c9ff');this.invuln=Math.max(this.invuln,.34);
@@ -124,8 +126,9 @@ class Fighter {
   }
 
   skillR() {
-    if(!this.alive||this.exhaustTimer>0||this.evoTier<2||this.cool.r>0||this.stamina<25)return;
-    this.stamina-=25;
+    const costsStamina=this.fighterCombatTimer>0;
+    if(!this.alive||this.exhaustTimer>0||this.evoTier<2||this.cool.r>0||(costsStamina&&this.stamina<25))return;
+    if(costsStamina)this.stamina-=25;
     this.cool.r=11; sfx('skill',this.isPlayer?1:.2); if(game.mode==='play')addXp(this,2);
     if(this.evolutionIds.includes('lancer')){
       this.dashTime=.38;this.dashVX=Math.cos(this.angle)*850;this.dashVY=Math.sin(this.angle)*850;this.invuln=.42;
@@ -136,8 +139,9 @@ class Fighter {
   }
 
   skillQ() {
-    if(!this.alive||this.exhaustTimer>0||this.evoTier<3||this.cool.q>0||this.stamina<25)return;
-    this.stamina-=25;
+    const costsStamina=this.fighterCombatTimer>0;
+    if(!this.alive||this.exhaustTimer>0||this.evoTier<3||this.cool.q>0||(costsStamina&&this.stamina<25))return;
+    if(costsStamina)this.stamina-=25;
     this.cool.q=23; sfx('skill',this.isPlayer?1:.2); if(game.mode==='play')addXp(this,3);
     if(this.evolutionIds.includes('storm')){
       for(let i=0;i<12;i++)spawnProjectile(this,i/12*TAU,490,13,this.damage*.95*this.skillPower,1.4,'#73d9ff',2);

@@ -21,8 +21,9 @@ function dealDamage(target,amount,source,kind='피해'){
   if(!target.alive||target.invuln>0)return 0;
   if(target instanceof Fighter)target.combatTimer=0;
   if(source instanceof Fighter)source.combatTimer=0;
+  if(target instanceof Fighter&&source instanceof Fighter){target.fighterCombatTimer=5;source.fighterCombatTimer=5;}
   let reduction=target.armor?target.armor/(100+target.armor):0;
-  if(target instanceof Fighter&&target.blocking&&target.stamina>0){reduction=1-(1-reduction)*(1-target.blockReduction);target.stamina=Math.max(0,target.stamina-5);if(source instanceof Fighter){source.stamina=Math.max(0,source.stamina-15);triggerExhaustion(source);}triggerExhaustion(target);effects.push({type:'block',x:target.x,y:target.y,a:target.angle,r:40,color:'#8dd6ff',life:.2,max:.2});}
+  if(target instanceof Fighter&&target.blocking&&target.stamina>0){reduction=1-(1-reduction)*(1-target.blockReduction);if(source instanceof Fighter){target.stamina=Math.max(0,target.stamina-5);source.stamina=Math.max(0,source.stamina-15);triggerExhaustion(source);triggerExhaustion(target);}effects.push({type:'block',x:target.x,y:target.y,a:target.angle,r:40,color:'#8dd6ff',life:.2,max:.2});}
   const final=Math.max(1,amount*(1-reduction));target.hp-=final;target.hurtAnim=1;
   if(source instanceof Fighter){
     if(source.lifesteal)source.hp=Math.min(source.maxHp,source.hp+final*source.lifesteal);
@@ -48,7 +49,7 @@ function killTarget(target,killer){
     return;
   }
   addFeed(killer?.name||'환경',target.name);
-  if(killer instanceof Fighter){killer.kills++;addXp(killer,110+target.level*25);if(killer.isPlayer){game.kills++;game.runGold+=Math.round((70+target.level*20)*killer.goldBonus);}}
+  if(killer instanceof Fighter){killer.kills++;killer.hp=killer.maxHp;killer.stamina=killer.maxStamina;killer.fighterCombatTimer=0;killer.exhaustTimer=0;floatTexts.push({x:killer.x,y:killer.y-42*killer.size,text:'완전 회복!',color:'#72f0b1',life:1.1,max:1.1});addXp(killer,110+target.level*25);if(killer.isPlayer){game.kills++;game.runGold+=Math.round((70+target.level*20)*killer.goldBonus);}}
   if(target.isPlayer)endRun();
   else target.respawnAt=game.time+rand(5,9);
 }

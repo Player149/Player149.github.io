@@ -11,7 +11,7 @@ function startBossBattle(manual=false){
   }
   if(eligible.length<2){announce('보스전 참가 불가',manual?'레벨 10 이상 기사가 최소 2명 필요합니다.':'조건 충족 인원이 부족해 60초 연기됩니다.');game.bossCountdown=manual?game.bossCountdown:60;return;}
   game.mode='boss';game.bossTimer=180;game.bossParticipants=eligible;game.boss=choose(eligible);projectiles.length=0;
-  game.bossSnapshot=fighters.map(f=>({f,values:{x:f.x,y:f.y,hp:f.hp,maxHp:f.maxHp,damage:f.damage,moveSpeed:f.moveSpeed,attackSpeed:f.attackSpeed,armor:f.armor,crit:f.crit,lifesteal:f.lifesteal,skillPower:f.skillPower,xpGain:f.xpGain,maxStamina:f.maxStamina,stamina:f.stamina,size:f.size,alive:f.alive,invuln:f.invuln}}));
+  game.bossSnapshot=fighters.map(f=>({f,values:{x:f.x,y:f.y,hp:f.hp,maxHp:f.maxHp,damage:f.damage,moveSpeed:f.moveSpeed,attackSpeed:f.attackSpeed,armor:f.armor,crit:f.crit,lifesteal:f.lifesteal,skillPower:f.skillPower,xpGain:f.xpGain,maxStamina:f.maxStamina,stamina:f.stamina,size:f.size,alive:f.alive,invuln:f.invuln,fighterCombatTimer:f.fighterCombatTimer,exhaustTimer:f.exhaustTimer}}));
   for(const f of fighters){f.bossFlag=false;f.bossDamage=0;f.bossKills=0;if(!eligible.includes(f)){f.alive=false;continue;}const base=f.baseStats;for(const k of ['damage','moveSpeed','attackSpeed','armor','crit','lifesteal','skillPower','xpGain','maxStamina'])f[k]=base[k]+(f[k]-base[k])*.1;f.maxHp=base.maxHp+(f.maxHp-base.maxHp)*.1;f.hp=f.maxHp;f.stamina=f.maxStamina;f.invuln=1;}
   const boss=game.boss, snap=game.bossSnapshot.find(s=>s.f===boss).values, challengers=eligible.length-1;
   boss.bossFlag=true;boss.damage=snap.damage*4;boss.attackSpeed=snap.attackSpeed*.55;boss.maxHp=snap.maxHp*(1+challengers*.7);boss.hp=boss.maxHp;boss.size=snap.size*1.62;game.bossMaxHp=boss.maxHp;

@@ -75,7 +75,7 @@ function drawSmallBar(x,y,p,w,color){ctx.fillStyle='#05080dbb';ctx.fillRect(x-w/
 // ---------- HUD ----------
 function updateHUD(){
   if(!player)return;
-  $('hudName').textContent=`${player.name} · Lv.${player.level}`;$('hudClass').textContent=player.evolutionNames.at(-1)||'초보 기사';
+  $('hudName').textContent=`${player.name} · Lv.${player.level}`;$('hudClass').textContent=player.fighterCombatTimer>0?'⚔ 전투 중':(player.evolutionNames.at(-1)||'초보 기사');
   $('hpFill').style.width=`${clamp(player.hp/player.maxHp*100,0,100)}%`;$('hpText').textContent=`${Math.ceil(Math.max(0,player.hp))} / ${Math.ceil(player.maxHp)}`;
   $('staminaFill').style.width=`${clamp(player.stamina/player.maxStamina*100,0,100)}%`;$('staminaText').textContent=`${Math.floor(player.stamina)} / ${Math.ceil(player.maxStamina)}`;
   $('xpFill').style.width=`${player.level>=40?100:clamp(player.xp/xpNeed(player.level)*100,0,100)}%`;
