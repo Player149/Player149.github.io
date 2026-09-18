@@ -19,8 +19,10 @@ function knock(t,vx,vy){if(t instanceof Fighter&&t.dashTime>0)return;t.x+=vx*.08
 
 function dealDamage(target,amount,source,kind='피해'){
   if(!target.alive||target.invuln>0)return 0;
+  if(target instanceof Fighter)target.combatTimer=0;
+  if(source instanceof Fighter)source.combatTimer=0;
   let reduction=target.armor?target.armor/(100+target.armor):0;
-  if(target.blocking&&target.stamina>0){reduction=1-(1-reduction)*(1-target.blockReduction);target.stamina=Math.max(0,target.stamina-13);effects.push({type:'block',x:target.x,y:target.y,a:target.angle,r:40,color:'#8dd6ff',life:.2,max:.2});}
+  if(target instanceof Fighter&&target.blocking&&target.stamina>=15){reduction=1-(1-reduction)*(1-target.blockReduction);target.stamina-=15;if(source instanceof Fighter)source.stamina=Math.max(0,source.stamina-15);effects.push({type:'block',x:target.x,y:target.y,a:target.angle,r:40,color:'#8dd6ff',life:.2,max:.2});}
   const final=Math.max(1,amount*(1-reduction));target.hp-=final;target.hurtAnim=1;
   if(source instanceof Fighter){
     if(source.lifesteal)source.hp=Math.min(source.maxHp,source.hp+final*source.lifesteal);
@@ -81,33 +83,40 @@ const STAT_CHOICES = [
   {icon:'🔰',title:'지구력 훈련',desc:'최대 스태미나가 18 증가합니다.',tag:'스태미나 +18',color:'#8ce491',apply:f=>{f.maxStamina+=18;f.stamina+=18}}
 ];
 const EVOLUTIONS = {
-  10:[
+  5:[
     {id:'duelist',icon:'🗡️',title:'결투가',desc:'날렵한 검사가 됩니다. 검기가 적을 2명까지 관통합니다.',tag:'E · 관통 검기',color:'#6bd4ff',apply:f=>{f.attackSpeed*=1.15;f.moveSpeed*=1.07;}},
     {id:'guardian',icon:'🛡️',title:'수호 기사',desc:'단단한 전열 기사가 됩니다. E가 방패 폭발로 바뀝니다.',tag:'E · 방패 폭발',color:'#80c6ff',apply:f=>{const d=f.maxHp*.22;f.maxHp+=d;f.hp+=d;f.armor+=7;}},
     {id:'berserker',icon:'🪓',title:'광전사',desc:'세 갈래 핏빛 검기를 날리며 공격력이 크게 오릅니다.',tag:'E · 삼중 검기',color:'#ff6477',apply:f=>{f.damage*=1.2;f.maxHp*=.94;f.hp=Math.min(f.hp,f.maxHp);}}
   ],
-  20:[
+  15:[
     {id:'lancer',icon:'🏇',title:'창기병',desc:'R로 전방을 꿰뚫는 초고속 돌진을 사용합니다.',tag:'R · 창기병 돌진',color:'#ffd56a',apply:f=>{f.moveSpeed*=1.1;f.damage*=1.08;}},
     {id:'sentinel',icon:'🏰',title:'성채 수호자',desc:'R로 넓은 대지 강타를 사용하고 방어력이 오릅니다.',tag:'R · 대지 강타',color:'#79caff',apply:f=>{f.armor+=12;f.blockReduction=Math.min(.82,f.blockReduction+.08);}},
     {id:'slayer',icon:'☠️',title:'학살자',desc:'R로 부채꼴 다섯 검기를 방출합니다.',tag:'R · 절멸의 칼날',color:'#ff6b83',apply:f=>{f.crit+=.1;f.attackSpeed*=1.08;}}
   ],
-  35:[
+  25:[
     {id:'storm',icon:'🌩️',title:'폭풍 기사',desc:'Q로 모든 방향에 관통하는 폭풍 검기를 발사합니다.',tag:'Q · 검의 폭풍',color:'#73ddff',apply:f=>{f.skillPower*=1.2;f.cool.e=Math.max(0,f.cool.e-2);}},
     {id:'colossus',icon:'🗿',title:'철의 거신',desc:'Q로 거대한 심판을 내리고 잠시 무적이 됩니다.',tag:'Q · 철의 심판',color:'#f2da8c',apply:f=>{const d=f.maxHp*.3;f.maxHp+=d;f.hp+=d;f.size*=1.12;}},
     {id:'reaper',icon:'👑',title:'핏빛 왕',desc:'Q로 주위를 처형하고 체력을 회복합니다.',tag:'Q · 핏빛 왕관',color:'#ff496a',apply:f=>{f.damage*=1.18;f.lifesteal+=.06;}}
   ]
 };
 
-function xpNeed(level){return Math.floor(52+level*22+Math.pow(level,1.36)*7);}
+const BASE_HP_PER_LEVEL=300/39;
+const BASE_STAMINA_PER_LEVEL=100/39;
+function xpNeed(level){return Math.floor(38+level*15+Math.pow(level,1.28)*5);}
+function applyLevelGrowth(f){
+  f.maxHp+=BASE_HP_PER_LEVEL;f.maxStamina+=BASE_STAMINA_PER_LEVEL;
+  f.stamina=Math.min(f.maxStamina,f.stamina+BASE_STAMINA_PER_LEVEL);
+  f.baseStats.maxHp+=BASE_HP_PER_LEVEL;f.baseStats.maxStamina+=BASE_STAMINA_PER_LEVEL;
+}
 function addXp(f,amount){
   if(!f?.alive||game.mode==='boss'||f.level>=40)return;
   f.xp+=amount*f.xpGain;
   while(f.level<40&&f.xp>=xpNeed(f.level)){
-    f.xp-=xpNeed(f.level);f.level++;
+    f.xp-=xpNeed(f.level);f.level++;applyLevelGrowth(f);
     const reward=Math.round((28+f.level*5)*f.goldBonus);
     if(f.isPlayer){game.runGold+=reward;sfx('level');announce(`LEVEL ${f.level}`,`골드 +${reward} · 새로운 힘을 선택하세요`);game.eventQueue.push({kind:'stat',level:f.level});if(EVOLUTIONS[f.level])game.eventQueue.unshift({kind:'evo',level:f.level});}
     else {autoStat(f);if(EVOLUTIONS[f.level])autoEvolve(f,f.level);}
-    f.hp=Math.min(f.maxHp,f.hp+f.maxHp*.12);
+    f.hp=Math.min(f.maxHp,f.hp+f.maxHp*.15);
   }
   if(f.isPlayer)processChoiceQueue();
 }
@@ -127,4 +136,3 @@ function showChoice(event){
   };$('choiceGrid').appendChild(el);});
 }
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-

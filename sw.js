@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'iron-crown-v1';
+const CACHE = 'iron-crown-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -41,4 +41,3 @@ self.addEventListener('fetch', event => {
     )
   );
 });
-

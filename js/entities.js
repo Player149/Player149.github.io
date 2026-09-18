@@ -8,7 +8,7 @@ class Fighter {
     this.id=idSeed++; this.name=name; this.x=x; this.y=y; this.isPlayer=isPlayer;
     this.angle=rand(0,TAU); this.color=isPlayer?'#f0b84a':choose(COLORS); this.radius=25; this.size=1;
     this.level=1; this.xp=0; this.kills=0; this.alive=true; this.respawnAt=0;
-    this.maxHp=110; this.hp=this.maxHp; this.damage=18; this.moveSpeed=178; this.attackSpeed=1;
+    this.maxHp=100; this.hp=this.maxHp; this.damage=18; this.moveSpeed=178; this.attackSpeed=1;
     this.armor=3; this.crit=.06; this.lifesteal=0; this.skillPower=1; this.xpGain=1;
     this.maxStamina=100; this.stamina=100; this.blockReduction=.64; this.dashCdMult=1;
     this.cool={attack:0,dash:0,e:0,r:0,q:0}; this.attackAnim=0; this.hurtAnim=0;
@@ -16,7 +16,7 @@ class Fighter {
     this.evoTier=0; this.evolutionIds=[]; this.evolutionNames=[];
     this.ai={retarget:0,target:null,strafe:Math.random()<.5?-1:1,block:0};
     this.bossFlag=false; this.bossDamage=0; this.bossKills=0;
-    this.zoneGlow=0; this.goldBonus=1;
+    this.zoneGlow=0; this.goldBonus=1; this.combatTimer=999;
     this.baseStats={maxHp:this.maxHp,damage:this.damage,moveSpeed:this.moveSpeed,attackSpeed:this.attackSpeed,armor:this.armor,crit:this.crit,lifesteal:this.lifesteal,skillPower:this.skillPower,xpGain:this.xpGain,maxStamina:this.maxStamina};
     if (isPlayer) applyRunes(this);
   }
@@ -36,8 +36,9 @@ class Fighter {
 
     const b=currentBounds(), margin=this.radius*this.size;
     this.x=clamp(this.x,b.x+margin,b.x+b.w-margin); this.y=clamp(this.y,b.y+margin,b.y+b.h-margin);
-    const regen=this.blocking?7:19;
-    this.stamina=clamp(this.stamina+regen*dt,0,this.maxStamina);
+    this.combatTimer+=dt;
+    this.stamina=clamp(this.stamina+10*dt,0,this.maxStamina);
+    if(this.combatTimer>=5&&this.hp<this.maxHp)this.hp=Math.min(this.maxHp,this.hp+this.maxHp*.1*dt);
     if (input.left && this.isPlayer && isGameplayReady()) this.attack();
   }
 
@@ -46,8 +47,8 @@ class Fighter {
     let my=(input.keys.KeyS?1:0)-(input.keys.KeyW?1:0)+input.touchMove.y;
     const ml=Math.hypot(mx,my); if (ml>1){mx/=ml;my/=ml;}
     let speed=this.moveSpeed;
-    if ((input.keys.ShiftLeft||input.keys.ShiftRight) && this.stamina>1 && ml>.1) { speed*=1.42; this.stamina=Math.max(0,this.stamina-25*dt); }
-    if (input.right && this.stamina>0) { this.blocking=true; speed*=.48; this.stamina=Math.max(0,this.stamina-8*dt); }
+    if ((input.keys.ShiftLeft||input.keys.ShiftRight) && ml>.1) speed*=1.42;
+    if (input.right && this.stamina>=15) { this.blocking=true; speed*=.5; }
     this.x+=mx*speed*dt; this.y+=my*speed*dt;
     if (input.mobile) {
       const t=nearestTarget(this,520); if(t) this.angle=Math.atan2(t.y-this.y,t.x-this.x); else if(ml>.1)this.angle=Math.atan2(my,mx);
@@ -72,8 +73,7 @@ class Fighter {
     this.x+=(dx/d*toward + -dy/d*side)*this.moveSpeed*dt;
     this.y+=(dy/d*toward + dx/d*side)*this.moveSpeed*dt;
     if(d<145 && Math.random()<.012) this.ai.block=rand(.25,.6);
-    this.blocking=this.ai.block>0&&this.stamina>0;
-    if(this.blocking)this.stamina=Math.max(0,this.stamina-7*dt);
+    this.blocking=this.ai.block>0&&this.stamina>=15;
     if(d<92)this.attack();
     if(this.evoTier>=1&&d<430&&this.cool.e<=0&&Math.random()<.008)this.skillE();
     if(this.evoTier>=2&&d<220&&this.cool.r<=0&&Math.random()<.005)this.skillR();
@@ -82,7 +82,8 @@ class Fighter {
   }
 
   attack() {
-    if(!this.alive||this.cool.attack>0||this.blocking)return;
+    if(!this.alive||this.cool.attack>0||this.blocking||this.stamina<15)return;
+    this.stamina-=15;
     this.cool.attack=.56/this.attackSpeed; this.attackAnim=1;
     sfx('swing',this.isPlayer?1:.25);
     const range=84*this.size, arc=1.28;
@@ -100,17 +101,18 @@ class Fighter {
   }
 
   dash() {
-    if(!this.alive||this.cool.dash>0||this.stamina<18)return;
+    if(!this.alive||this.cool.dash>0)return;
     let dx,dy;
     if(this.isPlayer){ dx=(input.keys.KeyD?1:0)-(input.keys.KeyA?1:0)+input.touchMove.x; dy=(input.keys.KeyS?1:0)-(input.keys.KeyW?1:0)+input.touchMove.y; }
     else {dx=Math.cos(this.angle);dy=Math.sin(this.angle);}
     let l=Math.hypot(dx,dy); if(l<.1){dx=Math.cos(this.angle);dy=Math.sin(this.angle);l=1;}
     dx/=l;dy/=l; this.dashTime=.17; this.dashVX=dx*690;this.dashVY=dy*690;
-    this.cool.dash=2.15*this.dashCdMult;this.invuln=.22;this.stamina-=18;sfx('dash',this.isPlayer?1:.2);
+    this.cool.dash=2.15*this.dashCdMult;this.invuln=.22;sfx('dash',this.isPlayer?1:.2);
   }
 
   skillE() {
-    if(!this.alive||this.evoTier<1||this.cool.e>0)return;
+    if(!this.alive||this.evoTier<1||this.cool.e>0||this.stamina<25)return;
+    this.stamina-=25;
     this.cool.e=6.5; sfx('skill',this.isPlayer?1:.2); if(game.mode==='play')addXp(this,1.3);
     if(this.evolutionIds.includes('guardian')){
       areaAttack(this,135,this.damage*1.25*this.skillPower,'방패 폭발','#78c9ff');this.invuln=Math.max(this.invuln,.34);
@@ -121,7 +123,8 @@ class Fighter {
   }
 
   skillR() {
-    if(!this.alive||this.evoTier<2||this.cool.r>0)return;
+    if(!this.alive||this.evoTier<2||this.cool.r>0||this.stamina<25)return;
+    this.stamina-=25;
     this.cool.r=11; sfx('skill',this.isPlayer?1:.2); if(game.mode==='play')addXp(this,2);
     if(this.evolutionIds.includes('lancer')){
       this.dashTime=.38;this.dashVX=Math.cos(this.angle)*850;this.dashVY=Math.sin(this.angle)*850;this.invuln=.42;
@@ -132,7 +135,8 @@ class Fighter {
   }
 
   skillQ() {
-    if(!this.alive||this.evoTier<3||this.cool.q>0)return;
+    if(!this.alive||this.evoTier<3||this.cool.q>0||this.stamina<25)return;
+    this.stamina-=25;
     this.cool.q=23; sfx('skill',this.isPlayer?1:.2); if(game.mode==='play')addXp(this,3);
     if(this.evolutionIds.includes('storm')){
       for(let i=0;i<12;i++)spawnProjectile(this,i/12*TAU,490,13,this.damage*.95*this.skillPower,1.4,'#73d9ff',2);
@@ -193,4 +197,3 @@ function applyRunes(f){
 }
 function attackColor(f){if(f.isPlayer&&hasRune('ember'))return'#ff624f';if(f.isPlayer&&hasRune('frost'))return'#6bdcff';return f.bossFlag?'#ffd45b':'#ecf2ff';}
 function trailParticle(x,y,color){const c=(player?.isPlayer&&hasRune('frost'))?'#80eaff':color;particles.push({x,y,vx:rand(-20,20),vy:rand(-20,20),life:.35,max:.35,size:rand(3,7),color:c});}
-
